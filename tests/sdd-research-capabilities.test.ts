@@ -5,13 +5,13 @@ import { childArguments } from "../lib/agents-runner.ts";
 import { resolveResearchCapabilities, researchAgent, renderResearchCapabilities } from "../lib/sdd-research-capabilities.ts";
 
 const inventory = (names: string[]) => ({ getActiveTools: () => names, getAllTools: () => names.map(name => ({ name, sourceInfo: { source: "extension" } })) });
-const agent = { name: "sdd-research", tools: ["read", "write", "fetch_content", "web_search", "source_check", "get_search_content"], instructions: "Research" } as never;
+const agent = { name: "sdd-research", tools: ["read", "edit", "write", "mem_save", "fetch_content", "web_search", "source_check", "get_search_content"], instructions: "Research" } as never;
 
 test("approved active external tools reach the actual child CLI allowlist", () => {
- const pi = inventory(["read", "write", "fetch_content", "web_search", "source_check", "get_search_content", "bash", "mcp"]);
+ const pi = inventory(["read", "edit", "write", "mem_save", "fetch_content", "web_search", "source_check", "get_search_content", "bash", "mcp"]);
  const result = researchAgent(agent, pi);
  const args = childArguments({ agent: result.agent, sessionDir: "sessions" } as never);
- assert.equal(args[args.indexOf("--tools") + 1], "read,write,fetch_content,web_search,source_check,get_search_content,subagent_parent_message");
+ assert.equal(args[args.indexOf("--tools") + 1], "read,fetch_content,web_search,source_check,get_search_content,subagent_parent_message");
  assert.equal(result.capabilities.documentation.status, "available");
  assert.equal(result.capabilities["open-web"].status, "available");
 });
@@ -23,7 +23,7 @@ test("class-specific grants render and persist exactly, while child tools remain
  assert.match(renderResearchCapabilities(caps), /documentation: available; tools=\["fetch_content"\]/);
  assert.deepEqual(resolveResearchCapabilities(inventory(["web_search"])).documentation.tools, []);
  assert.deepEqual(resolveResearchCapabilities(inventory(["web_search"]))["open-web"].tools, ["web_search"]);
- assert.deepEqual(researchAgent(agent, inventory(names)).agent.tools, agent.tools);
+ assert.deepEqual(researchAgent(agent, inventory(names)).agent.tools, ["read", "fetch_content", "web_search", "source_check", "get_search_content"]);
  const instructions = readFileSync(new URL("../assets/agents/sdd-research.md", import.meta.url), "utf8");
  assert.match(instructions, /Persist grants per source class exactly as observed/);
  assert.match(instructions, /never copy the child tool union into each class/);
@@ -49,7 +49,7 @@ test("restrictions, inactive tools and unknown tools never become grants", () =>
  const caps = resolveResearchCapabilities(pi, ["web_search"]);
  assert.equal(caps.documentation.status, "blocked");
  assert.equal(caps["open-web"].status, "blocked");
- assert.deepEqual(researchAgent({ ...agent, tools: ["read", "write"] } as never, pi).agent.tools, ["read", "write"]);
+ assert.deepEqual(researchAgent({ ...agent, tools: ["read", "grep", "find", "edit", "write", "mem_save"] } as never, pi).agent.tools, ["read", "grep", "find"]);
  assert.equal(resolveResearchCapabilities(inventory(["mcp", "mcp__context7"])).documentation.status, "blocked");
  const inactive = { ...pi, getActiveTools: () => [] };
  assert.equal(resolveResearchCapabilities(inactive).documentation.status, "blocked");

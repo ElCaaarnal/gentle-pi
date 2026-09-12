@@ -51,6 +51,21 @@ const V014_MANAGED_ASSETS = join(
 	"migrations",
 	"managed-assets-v0.14.json",
 );
+const V250_RESEARCH_FIXTURE = join(
+	PACKAGE_ROOT,
+	"tests",
+	"fixtures",
+	"v2.5.0",
+	"assets",
+	"agents",
+	"sdd-research.md",
+);
+const V251_MANAGED_ASSETS = join(
+	PACKAGE_ROOT,
+	"assets",
+	"migrations",
+	"managed-assets-v2.5.1.json",
+);
 // gentle-pi#311 P5: the managed-asset installer mechanism tests use
 // gentle-ai-explore.md as their exemplar (packaged, absent from the v0.13
 // manifest) after review-refuter.md was retired together with every
@@ -650,7 +665,7 @@ test("selective review migration adopts only untouched legacy copies and preserv
 });
 
 test("unowned legacy research migrates by exact normalized hash, preserving routing and user edits", () => {
-	const packaged = readFileSync(join(PACKAGE_ROOT, "assets", "agents", "sdd-research.md"), "utf8");
+	const packaged = readFileSync(V250_RESEARCH_FIXTURE, "utf8");
 	const oldAdmission = "- Evidence grants for this runtime are `documentation=[]; open-web=[]`. Never infer evidence capability from bash, persistence tools, or any inherited tool; persistence tools are not evidence grants. Unsupported or undeclared classes deny admission and emit no claims.\n- Because this runtime declares no evidence grants, retain the selected request, persist a `blocked` outcome with no claims, and stop.\n";
 	const legacy = packaged
 		.replace(/  - fetch_content\n  - web_search\n  - source_check\n  - get_search_content\n/, "")
@@ -678,6 +693,37 @@ test("unowned legacy research migrates by exact normalized hash, preserving rout
 				assert.equal(ownership.assets["agents/sdd-research.md"], sha256(actual));
 				installSddAssets(temporary, true);
 				assert.equal(readFileSync(target, "utf8"), actual, "subsequent refresh keeps adopted model routing");
+			}
+		}
+	} finally {
+		if (previous === undefined) delete process.env.GENTLE_PI_AGENT_HOME;
+		else process.env.GENTLE_PI_AGENT_HOME = previous;
+		rmSync(temporary, { recursive: true, force: true });
+	}
+});
+
+test("immediately previous research agent migrates to output-only while preserving routing and user edits", () => {
+	const legacy = readFileSync(V250_RESEARCH_FIXTURE, "utf8");
+	const manifest = JSON.parse(readFileSync(V251_MANAGED_ASSETS, "utf8"));
+	assert.equal(sha256(legacy), manifest.assets["agents/sdd-research.md"]);
+	const temporary = mkdtempSync(join(tmpdir(), "gentle-research-output-only-migration-"));
+	const previous = process.env.GENTLE_PI_AGENT_HOME;
+	try {
+		for (const edited of [false, true]) {
+			const agentHome = join(temporary, edited ? "edited" : "legacy");
+			process.env.GENTLE_PI_AGENT_HOME = agentHome;
+			mkdirSync(join(agentHome, "agents"), { recursive: true });
+			const target = join(agentHome, "agents", "sdd-research.md");
+			const routed = legacy.replace("name: sdd-research\n", "name: sdd-research\nmodel: custom/model\nthinking: high\n") + (edited ? "\nUser research restrictions.\n" : "");
+			writeFileSync(target, routed);
+			installSddAssets(temporary, true);
+			const actual = readFileSync(target, "utf8");
+			if (edited) {
+				assert.equal(actual, routed);
+			} else {
+				assert.match(actual, /model: custom\/model\nthinking: high/);
+				assert.match(actual, /output-only evidence collector/);
+				assert.doesNotMatch(actual, /  - (?:edit|write|mem_save)\n/);
 			}
 		}
 	} finally {

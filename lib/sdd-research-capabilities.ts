@@ -4,6 +4,7 @@ import type { AgentDefinition } from "./agents-config.ts";
 // `mcp` and dynamic `mcp__context7` gateways are deliberately NOT grants: an
 // active gateway does not prove which remote methods it can safely expose.
 export const RESEARCH_TOOLS = ["fetch_content", "web_search", "source_check", "get_search_content"] as const;
+export const RESEARCH_LOCAL_TOOLS = ["read", "grep", "find"] as const;
 export const RESEARCH_CHILD_TOOLS_ENV = "GENTLE_PI_RESEARCH_TOOLS";
 type Inventory = {
 	getActiveTools?: () => string[];
@@ -50,7 +51,7 @@ export function renderResearchCapabilities(capabilities: ResearchCapabilities): 
 export function researchAgent(agent: AgentDefinition, pi: Inventory): { agent: AgentDefinition; capabilities: ResearchCapabilities } {
 	const capabilities = resolveResearchCapabilities(pi, agent.tools);
 	const available = new Set(Object.values(capabilities).flatMap(value => value.tools));
-	const local = new Set(["read", "grep", "find", "edit", "write", "mem_search", "mem_get_observation", "mem_save"]);
+	const local = new Set<string>(RESEARCH_LOCAL_TOOLS);
 	const tools = agent.tools.filter(name => local.has(name) || available.has(name));
 	return { agent: { ...agent, tools, instructions: `${agent.instructions}\n\n${renderResearchCapabilities(capabilities)}` }, capabilities };
 }

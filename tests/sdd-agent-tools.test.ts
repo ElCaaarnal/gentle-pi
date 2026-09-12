@@ -67,7 +67,7 @@ const requiredToolsByAgent: Record<string, string[]> = {
 	"sdd-init.md": ["read", "grep", "find", "edit", "write", "bash", "mem_search", "mem_get_observation", "mem_save", "mem_update"],
 	"sdd-onboard.md": ["read", "grep", "find", "edit", "write", "bash", "mem_search", "mem_get_observation", "mem_save", "mem_update"],
 	"sdd-proposal.md": ["read", "grep", "find", "edit", "write", "mem_search", "mem_get_observation", "mem_save"],
-	"sdd-research.md": ["read", "grep", "find", "edit", "write", "mem_search", "mem_get_observation", "mem_save", "fetch_content", "web_search", "source_check", "get_search_content"],
+	"sdd-research.md": ["read", "grep", "find", "fetch_content", "web_search", "source_check", "get_search_content"],
 	"sdd-spec.md": ["read", "grep", "find", "edit", "write", "mem_search", "mem_get_observation", "mem_save"],
 	"sdd-status.md": ["read", "grep", "find", "bash", "mem_search", "mem_get_observation"],
 	"sdd-sync.md": ["read", "grep", "find", "edit", "write", "bash", "mem_search", "mem_get_observation", "mem_save", "mem_update"],
@@ -89,18 +89,21 @@ test("SDD package agents declare role-appropriate tools as YAML arrays", () => {
 	}
 });
 
-test("artifact-producing SDD agents can persist OpenSpec files while status remains read-only", () => {
+test("artifact-producing SDD agents can persist while status and research remain read-only", () => {
 	for (const fileName of Object.keys(requiredToolsByAgent).filter(
-		(fileName) => fileName !== "sdd-status.md",
+		(fileName) => fileName !== "sdd-status.md" && fileName !== "sdd-research.md",
 	)) {
 		const tools = readTools(join(assetsAgentsDir, fileName));
 		assert.ok(tools.includes("edit"), `${fileName} must include edit`);
 		assert.ok(tools.includes("write"), `${fileName} must include write`);
 	}
 
-	const statusTools = readTools(join(assetsAgentsDir, "sdd-status.md"));
-	assert.ok(!statusTools.includes("edit"), "sdd-status.md must remain read-only");
-	assert.ok(!statusTools.includes("write"), "sdd-status.md must remain read-only");
+	for (const fileName of ["sdd-status.md", "sdd-research.md"]) {
+		const tools = readTools(join(assetsAgentsDir, fileName));
+		for (const forbidden of ["edit", "write", "mem_save", "mem_update"]) {
+			assert.ok(!tools.includes(forbidden), `${fileName} must not include ${forbidden}`);
+		}
+	}
 });
 
 test("research instructions require executed evidence rather than blanket denial", () => {
@@ -109,7 +112,23 @@ test("research instructions require executed evidence rather than blanket denial
 	assert.match(source, /Actually call approved tools/);
 	assert.match(source, /claim maps to source IDs/);
 	assert.match(source, /proposal_ready: false/);
-	assert.ok(!readTools(join(assetsAgentsDir, "sdd-research.md")).includes("bash"));
+	assert.match(source, /output-only evidence collector/);
+	assert.match(source, /orchestrator validates and persists/);
+	for (const forbidden of ["bash", "edit", "write", "mem_save"]) {
+		assert.ok(!readTools(join(assetsAgentsDir, "sdd-research.md")).includes(forbidden));
+	}
+});
+
+test("research persistence belongs only to the parent orchestrator", () => {
+	const agent = readFileSync(join(assetsAgentsDir, "sdd-research.md"), "utf8");
+	const workflow = readFileSync(join(repoRoot, "assets", "sdd-orchestrator-workflow.md"), "utf8");
+	const memory = readFileSync(join(repoRoot, "assets", "orchestrator-memory.md"), "utf8");
+	for (const content of [agent, workflow, memory]) {
+		assert.match(content, /output-only evidence collector/);
+		assert.match(content, /parent orchestrator validates and persists/i);
+	}
+	assert.doesNotMatch(agent, /Persist this phase's artifact/);
+	assert.doesNotMatch(agent, /call the injected Engram save tool/);
 });
 
 test("project does not ship local SDD agent overrides", () => {

@@ -20,6 +20,7 @@ const LEGACY_MANAGED_ASSET_MANIFESTS = Object.freeze([
 	{ path: join(ASSETS_DIR, "migrations", "managed-assets-v0.13.json"), version: "0.13.0" },
 	{ path: join(ASSETS_DIR, "migrations", "managed-assets-v0.14.json"), version: "0.14.0" },
 	{ path: join(ASSETS_DIR, "migrations", "managed-assets-v2.5.0.json"), version: "2.5.0" },
+	{ path: join(ASSETS_DIR, "migrations", "managed-assets-v2.5.1.json"), version: "2.5.1" },
 ]);
 
 const ASSET_OWNER_BY_KEY = Object.freeze({

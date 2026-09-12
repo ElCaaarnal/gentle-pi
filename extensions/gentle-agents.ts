@@ -24,7 +24,7 @@ import { AGENTS_GLYPH, renderAgentsCard, widgetExpiryMs, widgetRows } from "../l
 import { CARD_TONE, renderCard } from "../lib/shell-card.ts";
 import { openInExternalEditor } from "./gentle-shell.ts";
 import { resolveGentlePiAgentHome } from "../lib/agent-home.ts";
-import { researchAgent, resolveResearchCapabilities, renderResearchCapabilities, RESEARCH_CHILD_TOOLS_ENV } from "../lib/sdd-research-capabilities.ts";
+import { researchAgent, resolveResearchCapabilities, renderResearchCapabilities, RESEARCH_CHILD_TOOLS_ENV, RESEARCH_LOCAL_TOOLS, RESEARCH_TOOLS } from "../lib/sdd-research-capabilities.ts";
 import { CHILD_METRICS_EVENT, CHILD_METRICS_REVOKED, childEvent, launchSelection, type LaunchSelection } from "../lib/runtime-metrics-children.ts";
 import { lookupPiCatalogName } from "../lib/runtime-metrics-pi-identity.ts";
 import { runtimeMetricsEnvAllows, type RuntimeMetricsPolicyDeps } from "../lib/runtime-metrics-policy.ts";
@@ -255,7 +255,10 @@ export default function gentleAgents(pi: ExtensionAPI, env: NodeJS.ProcessEnv = 
 		let allowed: string[] = [];
 		try {
 			const parsed: unknown = JSON.parse(env[RESEARCH_CHILD_TOOLS_ENV]!);
-			if (Array.isArray(parsed) && parsed.every(value => typeof value === "string")) allowed = parsed;
+			const outputOnlyTools = new Set<string>([...RESEARCH_LOCAL_TOOLS, ...RESEARCH_TOOLS]);
+			if (Array.isArray(parsed) && parsed.every(value => typeof value === "string")) {
+				allowed = parsed.filter(name => outputOnlyTools.has(name));
+			}
 		} catch { /* Invalid launch restrictions deny every tool. */ }
 		pi.on("before_agent_start", event => ({ systemPrompt: `${event.systemPrompt}\n\n${renderResearchCapabilities(resolveResearchCapabilities(pi, allowed))}` }));
 		pi.on("tool_call", event => {

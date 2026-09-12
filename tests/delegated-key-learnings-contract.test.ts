@@ -60,9 +60,9 @@ function strictJsonAgents(): string[] {
 	return agentFiles().filter((f) => STRICT_JSON_PREFIX.test(f));
 }
 
-test("every SDD phase executor carries an effective `## Key Learnings Closing` section with full semantics", () => {
-	const agents = sddAgents();
-	assert.ok(agents.length >= 12, `expected >=12 SDD agents, found ${agents.length}`);
+test("every write-owning SDD phase executor carries an effective `## Key Learnings Closing` section with full semantics", () => {
+	const agents = sddAgents().filter((name) => name !== "sdd-research.md");
+	assert.ok(agents.length >= 12, `expected >=12 write-owning SDD agents, found ${agents.length}`);
 	const missing: string[] = [];
 	const failed: string[] = [];
 	for (const file of agents) {
@@ -77,12 +77,18 @@ test("every SDD phase executor carries an effective `## Key Learnings Closing` s
 	assert.deepEqual(failed, [], "every section must encode all canonical semantics");
 });
 
-test("no SDD phase executor infers Key Learnings through `standard phase envelope` alone", () => {
-	for (const file of sddAgents()) {
+test("write-owning SDD phase executors declare Key Learnings directly", () => {
+	for (const file of sddAgents().filter((name) => name !== "sdd-research.md")) {
 		const source = readFileSync(join(AGENTS, file), "utf8");
 		const section = readSection(source, "Key Learnings Closing");
 		assert.ok(section, `${file} must have a direct Key Learnings Closing section`);
 	}
+});
+
+test("output-only research cannot trigger passive Key Learnings persistence", () => {
+	const source = readFileSync(join(AGENTS, "sdd-research.md"), "utf8");
+	assert.doesNotMatch(source, /Key Learnings Closing/);
+	assert.doesNotMatch(source, /`## Key Learnings`/);
 });
 
 test("SDD executor coverage is exhaustive against actual agent files", () => {
@@ -213,8 +219,8 @@ test("strict review and Judgment Day agents do not gain Key Learnings or trailin
 	assert.deepEqual(failures, [], "strict-JSON/ledger agents must remain untouched");
 });
 
-test("the canonical Key Learnings heading has no trailing colon in any asset", () => {
-	for (const file of sddAgents()) {
+test("the canonical Key Learnings heading has no trailing colon in write-owning assets", () => {
+	for (const file of sddAgents().filter((name) => name !== "sdd-research.md")) {
 		const source = readFileSync(join(AGENTS, file), "utf8");
 		assert.match(source, /`## Key Learnings`/, `${file} must reference the canonical heading`);
 		assert.doesNotMatch(source, /`## Key Learnings:`/, `${file} must not use a trailing colon`);

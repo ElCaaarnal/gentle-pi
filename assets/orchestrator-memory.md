@@ -4,12 +4,12 @@ Bind this to the parent Pi session only, on SDD phase memory reads/writes. Not a
 
 ### SDD phases
 
-Each SDD phase subagent reads its own required inputs directly from the active backend; the parent passes artifact references (topic keys or file paths), NOT the content itself. Phase subagents persist their artifact before returning.
+Each write-owning SDD phase subagent reads its required inputs directly from the active backend and persists its artifact before returning. `sdd-research` is the exception: it is an output-only evidence collector, receives persisted intent from the parent, and returns a complete envelope. The parent orchestrator validates and persists that envelope through the preflight-selected store.
 
 | Phase          | Reads                                                   | Writes           |
 | -------------- | ------------------------------------------------------- | ---------------- |
 | `sdd-explore`  | nothing                                                 | `explore`        |
-| `sdd-research` | exploration                                             | `research` + `preproposal` |
+| `sdd-research` | parent-supplied intent (no backend read)                 | none — parent writes `research` + `preproposal` |
 | `sdd-proposal` | exploration (optional)                                  | `proposal`       |
 | `sdd-spec`     | proposal (required)                                     | `spec`           |
 | `sdd-design`   | proposal (required)                                     | `design`         |
@@ -21,7 +21,7 @@ Each SDD phase subagent reads its own required inputs directly from the active b
 | `sdd-status`   | change artifacts (read-only)                            | nothing          |
 
 - SDD artifact keys: in memory/hybrid mode, phase artifacts use stable topic keys such as `sdd/<change>/proposal`, `sdd/<change>/spec`, `sdd/<change>/design`, `sdd/<change>/tasks`, `sdd/<change>/apply-progress`, `sdd/<change>/verify-report`, `sdd/<change>/sync-report`, and `sdd/<change>/archive-report`.
-- When the optional research lane is selected, `sdd-research` uses the additional topic keys `sdd/<change>/research` and `sdd/<change>/preproposal` (openspec: `openspec/changes/<change>/research.md`).
+- When the optional research lane is selected, the output-only evidence collector returns both records inline. The parent orchestrator validates and persists them under `sdd/<change>/research` and `sdd/<change>/preproposal` (openspec: `openspec/changes/<change>/research.md`).
 - If memory tools are unavailable, do not pretend persistence exists; return artifacts inline and/or write OpenSpec files.
 
 Memory lifecycle rule (when Engram exposes lifecycle metadata/tooling):
